@@ -10,7 +10,7 @@
 
 <div id="menu">
   <div id="main-options">
-    <button onclick="openPVPSetup()">Player vs Player</button>
+    <button onclick="openPVPSetup()">Multiplayer</button>
     <button onclick="openAISetup()">Player vs AI</button>
     <button onclick="openTournamentSetup()">Tournament</button>
   </div>
@@ -37,6 +37,7 @@
     <div style="margin-top:8px;">
       <button onclick="startAIFromForm()">Start</button>
       <button onclick="closeAISetup()">Go Back</button>
+      <button id="resetScoreBtn" class="reset-btn" onclick="resetScores()" style="margin-top: 10px; display: block; width: 100%;">Reset Score</button>
     </div>
   </div>
 
@@ -46,6 +47,15 @@
     <label>Player 2: <input id="p2name" class="name-input" placeholder="Player 2"></label><br>
 
     <div style="margin-top:12px;">
+      <div class="tournament-info">
+        <strong>Tournament Rules:</strong>
+        <ul>
+          <li>Each match has a 15-second timer per move</li>
+          <li>If time runs out, the current player loses that match</li>
+          <li>Each round starts with a 3-second countdown</li>
+          <li>Player with most wins after all rounds wins the tournament</li>
+        </ul>
+      </div>
       <strong>Rounds:</strong><br><br>
       <label style="display:inline-flex; gap:8px; align-items:center; margin-right:16px;">
         <input type="radio" name="rounds" value="3" checked> <span>3</span>

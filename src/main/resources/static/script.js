@@ -1,4 +1,4 @@
-let board, turn, interval;
+let board, turn, interval, timeoutTimer;
 let mode = null;
 let vsAI = false;
 
@@ -7,6 +7,8 @@ let score1 = 0, score2 = 0;
 let totalRounds = 1, currentRound = 1;
 let starter = 'X';
 let aiLevel = "hard";
+let playerSymbol = 'X';  // Track player's symbol in AI mode
+let aiSymbol = 'O';     // Track AI's symbol
 
 const boardDiv = document.getElementById("board");
 const msg = document.getElementById("message");
@@ -74,6 +76,18 @@ function startAIFromForm(){
   aiLevel = sel ? sel.value : "hard";
   mode = "ai";
   vsAI = true;
+  
+  // Alternate who starts first (X or O) in AI mode
+  if (starter === 'X') {
+    playerSymbol = 'X';
+    aiSymbol = 'O';
+    starter = 'O';  // Next game, O will start
+  } else {
+    playerSymbol = 'O';
+    aiSymbol = 'X';
+    starter = 'X';  // Next game, X will start
+  }
+  
   if (!Number.isFinite(score1)) { score1 = 0; score2 = 0; }
   closeAISetup();
   initRound();
@@ -102,168 +116,33 @@ function hideAllSetups(){
 }
 
 function initRound(){
-  document.getElementById("menu").classList.add("hidden");
-  document.getElementById("game").classList.remove("hidden");
-  board = Array(9).fill(" ");
-  turn = starter;
+  board = [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '];
+  turn = starter; // Use the current starter (X or O)
   
-  // Show/hide UI based on mode
-  if (mode === "pvp") {
-    document.getElementById("playerHeader").classList.remove("hidden");
-    document.getElementById("scoreboardSidebar").classList.add("hidden");
-    updatePlayerHeader();
-  } else {
-    document.getElementById("playerHeader").classList.add("hidden");
-    document.getElementById("scoreboardSidebar").classList.remove("hidden");
+  document.getElementById('game').classList.remove('hidden');
+  document.getElementById('menu').classList.add('hidden');
+  document.getElementById('scoreboardSidebar').classList.remove('hidden');
+  document.getElementById('playerHeader').classList.add('hidden');
+  
+  // Show countdown before starting the round
+  showOverlayCountdown(`Round ${currentRound}`, 3, () => {
+    draw();
+    startTimer();
     updateScoreboardDisplay();
-  }
-  
-  enableBoard();
-  draw();
-  startTimer();
-  msg.innerText = "";
-  updateRoundInfo();
-  overlay.classList.add("hidden");
-
-  // Show/hide Play Again depending on tournament state
-  if (mode === "tournament") {
-    // show during active tournament rounds
-    setPlayAgainVisibility(true);
-  } else {
-    // for AI/PVP keep Play Again available
-    setPlayAgainVisibility(true);
-  }
-}
-
-// Improved: compute win probability with lookahead (predict future moves)
-function computeWinProbabilities(b) {
-  // Check if board is empty (game start)
-  let isEmpty = true;
-  for (const c of b) {
-    if (c !== ' ') {
-      isEmpty = false;
-      break;
+    updateRoundInfo();
+    
+    // If it's AI's turn to start
+    if (vsAI && turn !== playerSymbol) {
+      disableBoard();
+      // Small delay for better UX
+      setTimeout(() => {
+        aiMove();
+        enableBoard();
+      }, 500);
     }
-  }
-  
-  // At game start, both players have equal chance
-  if (isEmpty) {
-    return { x: 50, o: 50 };
-  }
-  
-  // Evaluate from X's perspective
-  const scoreX = evaluateWithLookahead(b, 'X', true, 0);
-  
-  // Normalize: convert score to percentage
-  // Score range: -100 to +100
-  let px, po;
-  if (scoreX > 0) {
-    px = Math.min(100, 50 + Math.floor(scoreX / 2));
-  } else if (scoreX < 0) {
-    px = Math.max(0, 50 + Math.floor(scoreX / 2));
-  } else {
-    px = 50;
-  }
-  po = 100 - px;
-  
-  return { x: px, o: po };
+  });
 }
 
-function evaluateWithLookahead(b, currentPlayer, isXsTurn, depth) {
-  // Base case: check terminal states
-  if (checkWin(b, 'X')) return isXsTurn ? (100 - depth) : -(100 - depth);
-  if (checkWin(b, 'O')) return isXsTurn ? -(100 - depth) : (100 - depth);
-  if (isBoardFull(b)) return 0; // Draw
-  
-  // Limit depth to avoid deep recursion
-  if (depth >= 8) return evaluateBoardStatic(b);
-  
-  let bestScore;
-  const nextPlayer = (currentPlayer === 'X') ? 'O' : 'X';
-  
-  if (isXsTurn) {
-    // X is trying to maximize score
-    bestScore = Number.MIN_SAFE_INTEGER;
-    for (let i = 0; i < 9; i++) {
-      if (b[i] === ' ') {
-        b[i] = currentPlayer;
-        const score = evaluateWithLookahead(b, nextPlayer, false, depth + 1);
-        bestScore = Math.max(bestScore, score);
-        b[i] = ' ';
-      }
-    }
-  } else {
-    // O is trying to minimize score
-    bestScore = Number.MAX_SAFE_INTEGER;
-    for (let i = 0; i < 9; i++) {
-      if (b[i] === ' ') {
-        b[i] = currentPlayer;
-        const score = evaluateWithLookahead(b, nextPlayer, true, depth + 1);
-        bestScore = Math.min(bestScore, score);
-        b[i] = ' ';
-      }
-    }
-  }
-  
-  return (bestScore === Number.MIN_SAFE_INTEGER || bestScore === Number.MAX_SAFE_INTEGER) ? 0 : bestScore;
-}
-
-function checkWin(b, p) {
-  const lines = [
-    [0,1,2], [3,4,5], [6,7,8],
-    [0,3,6], [1,4,7], [2,5,8],
-    [0,4,8], [2,4,6]
-  ];
-  for (const line of lines) {
-    if (b[line[0]] === p && b[line[1]] === p && b[line[2]] === p) return true;
-  }
-  return false;
-}
-
-function isBoardFull(b) {
-  for (const c of b) if (c === ' ') return false;
-  return true;
-}
-
-function evaluateBoardStatic(b) {
-  let score = 0;
-  
-  const lines = [
-    [0,1,2], [3,4,5], [6,7,8],
-    [0,3,6], [1,4,7], [2,5,8],
-    [0,4,8], [2,4,6]
-  ];
-  
-  for (const line of lines) {
-    let xCount = 0, oCount = 0;
-    for (const idx of line) {
-      if (b[idx] === 'X') xCount++;
-      else if (b[idx] === 'O') oCount++;
-    }
-    // X has 2, can win next move
-    if (xCount === 2 && oCount === 0) score += 50;
-    // O has 2, can win next move (penalty for X)
-    else if (oCount === 2 && xCount === 0) score -= 50;
-    // X has 1 potential
-    else if (xCount === 1 && oCount === 0) score += 8;
-    // O has 1 potential
-    else if (oCount === 1 && xCount === 0) score -= 8;
-  }
-  
-  // Center and corner bonuses
-  if (b[4] === 'X') score += 6;
-  else if (b[4] === 'O') score -= 6;
-  
-  const corners = [0, 2, 6, 8];
-  for (const corner of corners) {
-    if (b[corner] === 'X') score += 3;
-    else if (b[corner] === 'O') score -= 3;
-  }
-  
-  return score;
-}
-
-// Try backend probability first, fallback to local compute
 function updateProbPanel() {
   const panel = document.getElementById("probabilityPanel");
   if (!panel) return;
@@ -379,17 +258,22 @@ function showOverlayCountdown(text, seconds, cb){
   },1000);
 }
 
-function startTimer(){
-  clearInterval(interval);
-  let t = 15;
-  timerDiv.innerText = "⏱️ "+t;
-  interval = setInterval(()=>{
-    t--;
-    timerDiv.innerText = "⏱️ "+t;
-    if (t===0){
-      handleTimeout();
-    }
-  },1000);
+function startTimer() {
+  let timeLeft = 15;
+  timerDiv.textContent = `⏱️ ${timeLeft}`;
+  if (interval) clearInterval(interval);
+  if (timeoutTimer) clearTimeout(timeoutTimer);
+  
+  interval = setInterval(() => {
+    timeLeft--;
+    timerDiv.textContent = `⏱️ ${timeLeft}`;
+  }, 1000);
+  
+  // Set a one-time timeout for the full duration
+  timeoutTimer = setTimeout(() => {
+    clearInterval(interval);
+    handleTimeout();
+  }, 15000);
 }
 
 function stopTimer(){ clearInterval(interval); }
@@ -406,46 +290,47 @@ function draw(){
   turnDiv.innerText=`Turn: ${turn}`;
 }
 
-function move(i){
-  if(board[i]!==" ") { msg.innerText="Block already filled"; return; }
-  board[i]=turn;
+function move(i) {
+  if (board[i] !== ' ' || (vsAI && turn !== playerSymbol)) return;
+  board[i] = turn;
   draw();
-  if(check(turn)) return; // Game ends here
-  turn = turn==="X" ? "O" : "X";
-  startTimer();
-  if(vsAI && turn==="O") aiMove();
+  check(turn);
+  
+  // If it's AI's turn after player move
+  if (vsAI && !checkWin(board, turn) && !isBoardFull(board)) {
+    disableBoard();
+    // Small delay for better UX
+    setTimeout(() => {
+      aiMove();
+      enableBoard();
+    }, 500);
+  }
 }
 
-function aiMove(){
-  fetch("/api/ai/move?level="+aiLevel,{
-    method:"POST",
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify(board)
-  })
-  .then(r=>{
-    if(!r.ok) throw new Error("AI request failed");
-    return r.json();
-  })
-  .then(i=>{
-    if (typeof i !== "number" || i < 0 || i > 8) {
-      msg.innerText = "AI did not return a valid move.";
-      return;
-    }
-    board[i]="O";
+function aiMove() {
+  if (isBoardFull(board) || checkWin(board, playerSymbol) || checkWin(board, aiSymbol)) return;
+  
+  let move;
+  const boardCopy = [...board];
+  
+  if (aiLevel === 'easy') {
+    // Easy: Random move
+    move = findRandomMove(boardCopy);
+  } else if (aiLevel === 'medium') {
+    // Medium: Sometimes blocks or wins, sometimes random
+    move = findWinningMove(boardCopy, aiSymbol) || 
+           findWinningMove(boardCopy, playerSymbol) || 
+           (Math.random() > 0.5 ? findBestMove(boardCopy) : findRandomMove(boardCopy));
+  } else {
+    // Hard: Uses minimax algorithm
+    move = findBestMove(boardCopy);
+  }
+  
+  if (move !== undefined && move !== -1) {
+    board[move] = turn; // Use current turn symbol (could be X or O)
     draw();
-    if(check("O")) return; // check for AI's move
-    turn="X";
-    startTimer();
-  })
-  .catch(e=>{
-    msg.innerText = "AI error: "+e.message;
-  });
-}
-
-function getPlayerNameForSymbol(sym){
-  if (mode === "ai") return sym === 'X' ? p1 : p2;
-  if (mode === "tournament") return sym === starter ? p1 : p2;
-  return sym === 'X' ? p1 : p2;
+    check(turn);
+  }
 }
 
 function check(playerSymbol){
@@ -468,72 +353,62 @@ function check(playerSymbol){
   return false;
 }
 
-function handleTimeout(){
-  stopTimer();
-  const loser = turn;
-  const winner = loser==="X" ? "O" : "X";
-  handleRoundEnd(winner);
+function handleTimeout() {
+  if (mode === 'ai') {
+    // In AI mode, the player who timed out loses
+    const winner = (turn === playerSymbol) ? aiSymbol : playerSymbol;
+    handleRoundEnd(winner);
+  } else {
+    // In other modes, the current player loses
+    const winner = turn === 'X' ? 'O' : 'X';
+    handleRoundEnd(winner);
+  }
 }
 
 function handleRoundEnd(winnerSymbol){
   stopTimer();
   disableBoard();
-
-  // Display result message
-  if (winnerSymbol !== null) {
-    const winnerName = getPlayerNameForSymbol(winnerSymbol);
-    msg.innerText = `Congratulations ${winnerName} — round finished.`;
-  } else {
-    msg.innerText = "Match Draw";
-  }
-
-  if (mode === "tournament") {
-    if (winnerSymbol === null) { score1++; score2++; }
-    else {
-      const winnerName = getPlayerNameForSymbol(winnerSymbol);
-      if (winnerName === p1) score1 += 2; else score2 += 2;
-    }
-    updateScoreboardDisplay();
-
-    if (currentRound >= totalRounds){
-      // Tournament finished: hide Play Again and lock UI
-      let finalMsg;
-      let winner;
-      if (score1 > score2) { finalMsg = `🏆 Winner of the Tournament: ${p1}`; winner = p1; }
-      else if (score2 > score1) { finalMsg = `🏆 Winner of the Tournament: ${p2}`; winner = p2; }
-      else { finalMsg = "🤝 Tournament Draw"; winner = null; }
-      msg.innerText = finalMsg;
-      // Disable any further interaction and hide Play Again
-      setPlayAgainVisibility(false);
-      document.getElementById("probabilityPanel")?.classList.add("hidden");
-      // keep Go Back visible so user can exit to menu
-      return;
+  
+  if (winnerSymbol === 'X') {
+    if (mode === 'ai') {
+      if (playerSymbol === 'X') score1++;
+      else score2++;
     } else {
-      // Advance to next round (auto)
-      currentRound++;
-      starter = (starter === 'X') ? 'O' : 'X';
-      updateRoundInfo();
-      // show overlay and start next round after countdown
-      showOverlayCountdown(`Next Round ${currentRound} starts in`, 3, ()=>{
+      score1++;
+    }
+    msg.textContent = `${getPlayerNameForSymbol('X')} wins!`;
+  } else if (winnerSymbol === 'O') {
+    if (mode === 'ai') {
+      if (playerSymbol === 'O') score1++;
+      else score2++;
+    } else {
+      score2++;
+    }
+    msg.textContent = `${getPlayerNameForSymbol('O')} wins!`;
+  } else {
+    msg.textContent = "It's a draw!";
+  }
+  
+  updateScoreboardDisplay();
+  setPlayAgainVisibility(true);
+  
+  // In tournament mode, check if we need to continue to next round
+  if (mode === 'tournament' && currentRound < totalRounds) {
+    currentRound++;
+    // Toggle starter for next round
+    starter = starter === 'X' ? 'O' : 'X';
+    
+    // Show countdown before next round
+    setTimeout(() => {
+      showOverlayCountdown(`Round ${currentRound} starting...`, 3, () => {
         initRound();
       });
-      return;
-    }
+    }, 2000);
   }
-
-  // AI mode: update scores but keep Play Again available
-  if (mode === "ai") {
-    if (winnerSymbol === null) { score1++; score2++; }
-    else {
-      if (winnerSymbol === 'X') score1 += 2; else score2 += 2;
-    }
-    updateScoreboardDisplay();
-    // keep Play Again visible
-    setPlayAgainVisibility(true);
-  } else {
-    // PVP mode: no persistent scoreboard; keep Play Again visible for friendly rematch
-    setPlayAgainVisibility(true);
-  }
+  
+  // Update score display and show play again button
+  updateScoreboardDisplay();
+  setPlayAgainVisibility(true);
 }
 
 function setPlayAgainVisibility(visible){

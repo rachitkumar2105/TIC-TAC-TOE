@@ -637,6 +637,132 @@ h1 {
   .probPercent {
     font-size:11px;
   }
+  
+  /* Game board */
+  #board {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin: 20px 0;
+    width: 100%;
+    max-width: 320px;
+  }
+
+  .cell {
+    width: 100%;
+    height: 80px;
+    font-size: 36px;
+    border-radius: 12px;
+  }
+
+  /* Scoreboard */
+  #scoreboardSidebar {
+    width: 100%;
+    max-width: 100%;
+    padding: 15px;
+    margin-bottom: 20px;
+    flex-direction: row;
+    justify-content: space-around;
+  }
+
+  .scoreCard {
+    padding: 10px;
+    min-width: 100px;
+  }
+
+  .playerName {
+    font-size: 12px;
+    margin-bottom: 4px;
+  }
+
+  .playerScore {
+    font-size: 24px;
+  }
+
+  /* Tournament info */
+  .tournament-info {
+    font-size: 13px;
+    margin: 15px 0;
+    padding: 10px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+  }
+
+  .tournament-info ul {
+    padding-left: 20px;
+    margin: 8px 0 0;
+  }
+
+  /* Buttons */
+  .controls {
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .controls button {
+    width: 100%;
+    max-width: 240px;
+  }
+
+  /* Overlay */
+  #overlayBox {
+    width: 90%;
+    padding: 30px 20px;
+  }
+
+  #overlayText {
+    font-size: 20px;
+  }
+
+  #overlayCount {
+    font-size: 48px;
+  }
+}
+
+/* Add smooth transitions */
+* {
+  transition: all 0.2s ease-in-out;
+}
+
+/* Reset button styles */
+.reset-btn {
+  background: linear-gradient(135deg, #ff4d4d 0%, #cc0000 100%) !important;
+  border: 2px solid #ff4d4d !important;
+  margin-top: 20px !important;
+  transition: all 0.3s ease !important;
+}
+
+.reset-btn:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 5px 15px rgba(255, 0, 0, 0.3) !important;
+}
+
+/* Tournament info box */
+.tournament-info {
+  background: rgba(255, 140, 0, 0.1);
+  border-left: 3px solid #ff8c00;
+  padding: 12px 15px;
+  margin: 15px 0;
+  border-radius: 8px;
+}
+
+.tournament-info strong {
+  color: #ff8c00;
+  display: block;
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.tournament-info ul {
+  margin: 8px 0 0 0;
+  padding-left: 20px;
+}
+
+.tournament-info li {
+  font-size: 13px;
+  color: #e0e0e0;
+  margin-bottom: 4px;
+  line-height: 1.4;
 }
 
 /* Responsive */
